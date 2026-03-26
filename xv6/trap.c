@@ -47,6 +47,23 @@ trap(struct trapframe *tf)
   }
 
   switch(tf->trapno){
+
+  case T_PGFLT:
+    if((tf -> cs & 3) == DPL_USER){/*when from usr*/
+
+      uint addr = rcr2();
+
+      /*null*/
+      if(addr < PGSIZE) cprintf("pid %d %s: likely NULL dereference at 0x%x on eip 0x%x\n", myproc()->pid, myproc()->name, addr, tf->eip);
+      /*normal pgflt*/
+      else cprintf("pid %d %s: page fault at 0x%x on eip 0x%x\n", myproc()->pid, myproc()->name, addr, tf->eip);
+      
+      /*flag as killed*/
+      myproc()->killed = 1;
+      break;
+    }
+    goto trap_default;/*default behavior if not from usr*/
+
   case T_IRQ0 + IRQ_TIMER:
     if(cpuid() == 0){
       acquire(&tickslock);
@@ -78,6 +95,7 @@ trap(struct trapframe *tf)
     lapiceoi();
     break;
 
+  trap_default:/*for goto default behavior*/
   //PAGEBREAK: 13
   default:
     if(myproc() == 0 || (tf->cs&3) == 0){
